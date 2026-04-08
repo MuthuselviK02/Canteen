@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>IST Time Formatting Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        .code { background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px; }
+        .result { padding: 10px; margin: 10px 0; border-left: 4px solid #28a745; background: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <h1>🕐 IST Time Formatting Test</h1>
+    
+    <div class="test-section info">
+        <h2>🔍 Testing IST Time Formatting in Browser</h2>
+        <p>This test will verify if the IST time formatting is working correctly in the browser environment.</p>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Test Results</h2>
+        <div id="test-results"></div>
+    </div>
+
+    <script>
+        // IST Time formatting function (same as in Kitchen.tsx)
+        const formatISTTime = (date) => {
+            const dateObj = typeof date === 'string' ? new Date(date) : date;
+            
+            // Debug: Log the input and output
+            console.log('formatISTTime input:', date);
+            const result = dateObj.toLocaleString('en-IN', {
+                timeZone: 'Asia/Kolkata',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            });
+            console.log('formatISTTime output:', result);
+            
+            return result;
+        };
+
+        // Test with sample timestamps
+        const testTimestamps = [
+            '2026-01-27T02:45:22.957367Z',
+            '2026-01-27T08:15:00.000000Z',
+            '2026-01-26T15:02:10.993711Z',
+            new Date(),
+            '2026-01-27T01:40:21.516165Z'
+        ];
+
+        const resultsDiv = document.getElementById('test-results');
+        let allTestsPassed = true;
+
+        testTimestamps.forEach((timestamp, index) => {
+            const testDiv = document.createElement('div');
+            testDiv.className = 'result';
+            
+            try {
+                const formattedTime = formatISTTime(timestamp);
+                
+                // Check if the result looks like IST time (contains AM/PM)
+                const looksLikeIST = formattedTime.includes('AM') || formattedTime.includes('PM');
+                
+                testDiv.innerHTML = `
+                    <h3>Test ${index + 1}: ${looksLikeIST ? '✅ PASS' : '❌ FAIL'}</h3>
+                    <p><strong>Input:</strong> ${timestamp}</p>
+                    <p><strong>Formatted IST Time:</strong> ${formattedTime}</p>
+                    <p><strong>Looks like IST:</strong> ${looksLikeIST ? 'Yes' : 'No'}</p>
+                `;
+                
+                if (!looksLikeIST) {
+                    allTestsPassed = false;
+                }
+                
+            } catch (error) {
+                allTestsPassed = false;
+                testDiv.innerHTML = `
+                    <h3>Test ${index + 1}: ❌ ERROR</h3>
+                    <p><strong>Input:</strong> ${timestamp}</p>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                `;
+            }
+            
+            resultsDiv.appendChild(testDiv);
+        });
+
+        // Summary
+        const summaryDiv = document.createElement('div');
+        summaryDiv.className = allTestsPassed ? 'test-section success' : 'test-section warning';
+        summaryDiv.innerHTML = `
+            <h2>${allTestsPassed ? '✅ ALL TESTS PASSED' : '⚠️ SOME TESTS FAILED'}</h2>
+            <p>${allTestsPassed ? 
+                'IST time formatting is working correctly in the browser!' : 
+                'There may be an issue with IST time formatting in the browser.'}</p>
+        `;
+        resultsDiv.appendChild(summaryDiv);
+
+        // Additional browser info
+        const browserInfoDiv = document.createElement('div');
+        browserInfoDiv.className = 'test-section info';
+        browserInfoDiv.innerHTML = `
+            <h2>🌍 Browser Information</h2>
+            <p><strong>Browser Timezone:</strong> ${Intl.DateTimeFormat().resolvedOptions().timeZone}</p>
+            <p><strong>Current Local Time:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Current IST Time:</strong> ${formatISTTime(new Date())}</p>
+            <p><strong>User Agent:</strong> ${navigator.userAgent}</p>
+        `;
+        resultsDiv.appendChild(browserInfoDiv);
+    </script>
+</body>
+</html>

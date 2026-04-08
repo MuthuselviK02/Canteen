@@ -1,0 +1,55 @@
+AVAILABLE IMAGE URLs FOR MENU MANAGEMENT
+==========================================
+
+Copy any of these URLs and paste them in the Admin Menu Management URL field:
+
+1. http://localhost:8000/static/images/brownie.jpg
+2. http://localhost:8000/static/images/burger.jpg
+3. http://localhost:8000/static/images/butter_chicken.jpg
+4. http://localhost:8000/static/images/caesar_salad.jpg
+5. http://localhost:8000/static/images/chicken_biryani.jpg
+6. http://localhost:8000/static/images/chicken_curry.jpg
+7. http://localhost:8000/static/images/chocolate_cake.jpg
+8. http://localhost:8000/static/images/cold_coffee.jpg
+9. http://localhost:8000/static/images/dal_makhani.jpg
+10. http://localhost:8000/static/images/default_food.jpg
+11. http://localhost:8000/static/images/french_fries.jpg
+12. http://localhost:8000/static/images/fried_rice.jpg
+13. http://localhost:8000/static/images/gulab_jamun.jpg
+14. http://localhost:8000/static/images/hot_coffee.jpg
+15. http://localhost:8000/static/images/ice_cream.jpg
+16. http://localhost:8000/static/images/idli.jpg
+17. http://localhost:8000/static/images/lime_soda.jpg
+18. http://localhost:8000/static/images/mango_lassi.jpg
+19. http://localhost:8000/static/images/masala_dosa.jpg
+20. http://localhost:8000/static/images/mix_veg.jpg
+21. http://localhost:8000/static/images/noodles.jpg
+22. http://localhost:8000/static/images/orange_juice.jpg
+23. http://localhost:8000/static/images/palak_paneer.jpg
+24. http://localhost:8000/static/images/paneer_tikka.jpg
+25. http://localhost:8000/static/images/pizza.jpg
+26. http://localhost:8000/static/images/poha.jpg
+27. http://localhost:8000/static/images/salad.jpg
+28. http://localhost:8000/static/images/samosa.jpg
+29. http://localhost:8000/static/images/sandwich.jpg
+30. http://localhost:8000/static/images/soup.jpg
+31. http://localhost:8000/static/images/tea.jpg
+32. http://localhost:8000/static/images/tomato_soup.jpg
+33. http://localhost:8000/static/images/veg_biryani.jpg
+
+==========================================
+INSTRUCTIONS:
+1. Copy any URL from above
+2. Go to Admin Dashboard → Menu Management
+3. Edit a menu item or create new one
+4. Paste the URL in the 'Image URL' field
+5. Save the item
+
+FOR NEW IMAGES:
+1. Place new image files in: backend/static/images/
+2. Run: python list_image_urls.py (or double-click get_image_urls.bat)
+3. Copy the new URL from the updated list
+4. Use it in menu management
+
+BASE URL: http://localhost:8000/static/images/
+LOCAL FOLDER: backend/static/images/

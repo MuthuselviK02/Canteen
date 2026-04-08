@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Billing API Test</title>
+</head>
+<body>
+    <h1>Billing API CORS Test</h1>
+    <button onclick="testBillingAPI()">Test Billing API</button>
+    <div id="results"></div>
+
+    <script>
+        async function testBillingAPI() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<p>Testing...</p>';
+
+            try {
+                // First login
+                const loginResponse = await fetch('http://localhost:8000/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'superadmin@admin.com',
+                        password: 'admin123'
+                    })
+                });
+
+                if (!loginResponse.ok) {
+                    throw new Error(`Login failed: ${loginResponse.status}`);
+                }
+
+                const loginData = await loginResponse.json();
+                const token = loginData.access_token;
+
+                // Now test billing API
+                const billingResponse = await fetch('http://localhost:8000/api/billing/invoices', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!billingResponse.ok) {
+                    throw new Error(`Billing API failed: ${billingResponse.status}`);
+                }
+
+                const invoices = await billingResponse.json();
+
+                resultsDiv.innerHTML = `
+                    <h2>✅ Success!</h2>
+                    <p>Authentication: ✅</p>
+                    <p>Billing API: ✅</p>
+                    <p>Invoices found: ${invoices.length}</p>
+                    <p>First invoice: ${invoices[0]?.invoice_number || 'N/A'}</p>
+                    <p>CORS: ✅ Working correctly</p>
+                `;
+
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <h2>❌ Error</h2>
+                    <p>${error.message}</p>
+                    <p>Check console for details</p>
+                `;
+                console.error('Full error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

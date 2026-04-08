@@ -1,0 +1,36 @@
+# ---------- FastAPI Core ----------
+fastapi==0.110.0
+uvicorn[standard]==0.27.1
+
+# ---------- Database ----------
+SQLAlchemy==2.0.25
+
+# ---------- Authentication & Security ----------
+python-jose==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.1.2
+
+# ---------- Validation ----------
+pydantic==2.6.1
+email-validator==2.1.0.post1
+pydantic-settings==2.2.1
+
+# ---------- CORS ----------
+python-multipart==0.0.9
+
+# ---------- Rate Limiting ----------
+slowapi==0.1.9
+
+# ---------- Security ----------
+python-multipart==0.0.9
+
+# ---------- Machine Learning ----------
+scikit-learn==1.4.0
+pandas==2.2.0
+numpy==1.26.4
+joblib==1.3.2
+xgboost==2.0.3
+
+
+# ---------- Optional (Future / Prod) ----------
+alembic==1.13.1

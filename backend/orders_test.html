@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Orders Page Test</title>
+</head>
+<body>
+    <h1>Orders Page Test</h1>
+    <button onclick="testCompleteFlow()">Test Complete Flow</button>
+    <div id="result"></div>
+
+    <script>
+        async function testCompleteFlow() {
+            try {
+                // Step 1: Login
+                const loginResponse = await fetch('http://localhost:8000/api/auth/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        email: 'superadmin@admin.com',
+                        password: 'admin@1230'
+                    })
+                });
+                
+                if (loginResponse.status !== 200) {
+                    throw new Error('Login failed');
+                }
+                
+                const loginData = await loginResponse.json();
+                const token = loginData.access_token;
+                
+                // Step 2: Place order
+                const orderResponse = await fetch('http://localhost:8000/api/orders/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        items: [
+                            {menu_item_id: 1, quantity: 1}
+                        ],
+                        available_time: null
+                    })
+                });
+                
+                if (orderResponse.status !== 200) {
+                    throw new Error('Order placement failed');
+                }
+                
+                // Step 3: Fetch orders
+                const ordersResponse = await fetch('http://localhost:8000/api/orders/', {
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+                
+                if (ordersResponse.status !== 200) {
+                    throw new Error('Failed to fetch orders');
+                }
+                
+                const orders = await ordersResponse.json();
+                
+                // Display results
+                let html = '<h2>✅ Complete Flow Successful!</h2>';
+                html += `<p>Found ${orders.length} orders</p>`;
+                
+                if (orders.length > 0) {
+                    const latestOrder = orders[orders.length - 1];
+                    html += '<h3>Latest Order:</h3>';
+                    html += `<p>Order ID: ${latestOrder.id}</p>`;
+                    html += `<p>Status: ${latestOrder.status}</p>`;
+                    html += `<p>Items: ${latestOrder.items.length}</p>`;
+                    
+                    if (latestOrder.items.length > 0) {
+                        const item = latestOrder.items[0];
+                        html += '<h4>First Item:</h4>';
+                        html += `<p>Name: ${item.menu_item?.name || 'N/A'}</p>`;
+                        html += `<p>Price: $${item.menu_item?.price || 0}</p>`;
+                        html += `<p>Quantity: ${item.quantity}</p>`;
+                        html += `<img src="${item.menu_item?.image_url || ''}" style="width: 50px; height: 50px; object-fit: cover;">`;
+                    }
+                }
+                
+                document.getElementById('result').innerHTML = html;
+                
+            } catch (error) {
+                document.getElementById('result').innerHTML = `
+                    <h2>❌ Test Failed</h2>
+                    <p>Error: ${error.message}</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

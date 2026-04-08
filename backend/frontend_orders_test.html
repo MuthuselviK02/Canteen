@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Frontend Orders Test</title>
+</head>
+<body>
+    <h1>Frontend Orders Debug</h1>
+    <button onclick="testFrontendOrders()">Test Frontend Orders</button>
+    <div id="result"></div>
+
+    <script>
+        async function testFrontendOrders() {
+            try {
+                // Step 1: Login like the frontend does
+                const loginResponse = await fetch('http://localhost:8000/api/auth/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        email: 'superadmin@admin.com',
+                        password: 'admin@1230'
+                    })
+                });
+                
+                if (loginResponse.status !== 200) {
+                    throw new Error('Login failed');
+                }
+                
+                const loginData = await loginResponse.json();
+                const token = loginData.access_token;
+                
+                // Store token like frontend does
+                localStorage.setItem('canteen_token', token);
+                
+                // Step 2: Fetch orders like the frontend OrderContext does
+                const ordersResponse = await fetch('http://localhost:8000/api/orders/', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                console.log('Orders response status:', ordersResponse.status);
+                
+                if (ordersResponse.status !== 200) {
+                    throw new Error(`Orders fetch failed: ${ordersResponse.status}`);
+                }
+                
+                const apiOrders = await ordersResponse.json();
+                console.log('API Orders:', apiOrders);
+                
+                // Step 3: Transform like frontend does
+                const transformedOrders = apiOrders.map((apiOrder) => ({
+                    id: apiOrder.id.toString(),
+                    userId: apiOrder.user_id,
+                    userName: 'User',
+                    items: apiOrder.items.map((item) => ({
+                        menuItem: {
+                            id: item.menu_item?.id?.toString() || item.menu_item_id?.toString(),
+                            name: item.menu_item?.name || 'Unknown Item',
+                            description: item.menu_item?.description || '',
+                            price: item.menu_item?.price || 0,
+                            prepTime: item.menu_item?.base_prep_time || 10,
+                            calories: item.menu_item?.calories || 0,
+                            category: item.menu_item?.category || 'Main Course',
+                            image: item.menu_item?.image_url || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=300&fit=crop',
+                            available: item.menu_item?.is_available ?? true
+                        },
+                        quantity: item.quantity
+                    })),
+                    totalPrice: apiOrder.items?.reduce((sum, item) => 
+                        sum + (item.menu_item?.price || 0) * item.quantity, 0) || 0,
+                    totalCalories: apiOrder.items?.reduce((sum, item) => 
+                        sum + (item.menu_item?.calories || 0) * item.quantity, 0) || 0,
+                    estimatedTime: apiOrder.predicted_wait_time || 15,
+                    status: apiOrder.status?.toLowerCase() || 'pending',
+                    queuePosition: apiOrder.queue_position || 1,
+                    createdAt: new Date()
+                }));
+                
+                console.log('Transformed Orders:', transformedOrders);
+                
+                // Step 4: Filter like frontend does (assuming user ID 1)
+                const currentUserId = 1;
+                const userOrders = transformedOrders.filter(o => o.userId === currentUserId);
+                const activeOrders = userOrders.filter(o => o.status !== 'completed');
+                const pastOrders = userOrders.filter(o => o.status === 'completed');
+                
+                // Display results
+                let html = '<h2>✅ Frontend Orders Test Results</h2>';
+                html += `<p>Total API Orders: ${apiOrders.length}</p>`;
+                html += `<p>Total Transformed Orders: ${transformedOrders.length}</p>`;
+                html += `<p>User Orders (ID ${currentUserId}): ${userOrders.length}</p>`;
+                html += `<p>Active Orders: ${activeOrders.length}</p>`;
+                html += `<p>Past Orders: ${pastOrders.length}</p>`;
+                
+                if (activeOrders.length > 0) {
+                    html += '<h3>Active Order Details:</h3>';
+                    activeOrders.forEach((order, index) => {
+                        html += `<h4>Order ${index + 1}:</h4>`;
+                        html += `<ul>`;
+                        html += `<li>ID: ${order.id}</li>`;
+                        html += `<li>Status: ${order.status}</li>`;
+                        html += `<li>Total Price: $${order.totalPrice.toFixed(2)}</li>`;
+                        html += `<li>Items: ${order.items.length}</li>`;
+                        order.items.forEach(item => {
+                            html += `<li>- ${item.menuItem.name} x${item.quantity} ($${(item.menuItem.price * item.quantity).toFixed(2)})</li>`;
+                        });
+                        html += `</ul>`;
+                    });
+                }
+                
+                document.getElementById('result').innerHTML = html;
+                
+            } catch (error) {
+                console.error('Test failed:', error);
+                document.getElementById('result').innerHTML = `
+                    <h2>❌ Test Failed</h2>
+                    <p>Error: ${error.message}</p>
+                    <p>Check browser console for details</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

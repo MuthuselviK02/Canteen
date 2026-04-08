@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Order-to-Billing Integration Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .step { margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 3px; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 3px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .btn-danger { background: #dc3545; color: white; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 3px; }
+        .result.success { background: #d4edda; border: 1px solid #c3e6cb; }
+        .result.error { background: #f8d7da; border: 1px solid #f5c6cb; }
+        .result.info { background: #d1ecf1; border: 1px solid #bee5eb; }
+        .loading { color: #666; font-style: italic; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Order-to-Billing Integration Test</h1>
+    
+    <div class="test-section">
+        <h2>📋 Test Overview</h2>
+        <p>This test verifies the complete order-to-billing flow from customer perspective.</p>
+        <button onclick="runCompleteTest()" class="btn-primary">🧪 Run Complete Test</button>
+        <button onclick="clearResults()" class="btn-warning">🗑️ Clear Results</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        let token = null;
+        let testOrderId = null;
+        let testInvoiceId = null;
+
+        function addResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = message;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function login() {
+            addResult('🔐 Attempting login...', 'info');
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'superadmin@admin.com',
+                        password: 'admin123'
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    token = data.access_token;
+                    addResult('✅ Login successful!', 'success');
+                    return true;
+                } else {
+                    addResult(`❌ Login failed: ${response.status}`, 'error');
+                    return false;
+                }
+            } catch (error) {
+                addResult(`❌ Login error: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function getMenuItems() {
+            addResult('🍽️ Getting menu items...', 'info');
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/menu/', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const items = await response.json();
+                    addResult(`✅ Found ${items.length} menu items`, 'success');
+                    
+                    // Find first available item
+                    const availableItem = items.find(item => item.is_available);
+                    if (availableItem) {
+                        addResult(`🍕 Selected: ${availableItem.name} - ₹${availableItem.price}`, 'info');
+                        return availableItem;
+                    } else {
+                        addResult('❌ No available items found', 'error');
+                        return null;
+                    }
+                } else {
+                    addResult(`❌ Get menu failed: ${response.status}`, 'error');
+                    return null;
+                }
+            } catch (error) {
+                addResult(`❌ Get menu error: ${error.message}`, 'error');
+                return null;
+            }
+        }
+
+        async function placeOrder(menuItem) {
+            addResult('🛒 Placing order...', 'info');
+            
+            try {
+                const orderData = {
+                    items: [
+                        { menu_item_id: menuItem.id, quantity: 2 }
+                    ],
+                    available_time: null
+                };
+
+                const response = await fetch('http://localhost:8000/api/orders/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(orderData)
+                });
+
+                if (response.ok) {
+                    const order = await response.json();
+                    testOrderId = order.id;
+                    
+                    const totalAmount = menuItem.price * 2;
+                    addResult(`✅ Order placed successfully!`, 'success');
+                    addResult(`📋 Order ID: ${order.id}`, 'info');
+                    addResult(`⏰ Wait time: ${order.predicted_wait_time} minutes`, 'info');
+                    addResult(`💰 Total: ₹${totalAmount.toFixed(2)}`, 'info');
+                    
+                    return {
+                        order: order,
+                        totalAmount: totalAmount,
+                        items: [{
+                            name: menuItem.name,
+                            price: menuItem.price,
+                            quantity: 2,
+                            description: menuItem.description
+                        }]
+                    };
+                } else {
+                    addResult(`❌ Place order failed: ${response.status}`, 'error');
+                    return null;
+                }
+            } catch (error) {
+                addResult(`❌ Place order error: ${error.message}`, 'error');
+                return null;
+            }
+        }
+
+        async function createInvoice(orderData) {
+            addResult('🧾 Creating invoice...', 'info');
+            
+            try {
+                const taxAmount = orderData.totalAmount * 0.18;
+                const totalAmount = orderData.totalAmount + taxAmount;
+                
+                const invoiceData = {
+                    customer_id: 1,
+                    order_id: orderData.order.id,
+                    customer_name: 'Test Customer',
+                    customer_email: 'test@example.com',
+                    customer_phone: '+91 9876543210',
+                    items: orderData.items,
+                    notes: `Invoice for Order #${orderData.order.id}`,
+                    payment_method: 'cash',
+                    subtotal: orderData.totalAmount,
+                    tax_amount: taxAmount,
+                    total_amount: totalAmount
+                };
+
+                const response = await fetch('http://localhost:8000/api/billing/invoices', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(invoiceData)
+                });
+
+                if (response.ok) {
+                    const invoice = await response.json();
+                    testInvoiceId = invoice.id;
+                    
+                    addResult(`✅ Invoice created successfully!`, 'success');
+                    addResult(`🧾 Invoice Number: ${invoice.invoice_number}`, 'info');
+                    addResult(`💰 Total Amount: ₹${invoice.total_amount.toFixed(2)}`, 'info');
+                    addResult(`📊 Status: ${invoice.status}`, 'info');
+                    
+                    return invoice;
+                } else {
+                    const error = await response.text();
+                    addResult(`❌ Create invoice failed: ${response.status}`, 'error');
+                    addResult(`Error: ${error}`, 'error');
+                    return null;
+                }
+            } catch (error) {
+                addResult(`❌ Create invoice error: ${error.message}`, 'error');
+                return null;
+            }
+        }
+
+        async function processPayment() {
+            addResult('💳 Processing payment...', 'info');
+            
+            try {
+                const response = await fetch(`http://localhost:8000/api/billing/invoices/${testInvoiceId}/mark-paid`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ payment_method: 'cash' })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    addResult(`✅ Payment processed successfully!`, 'success');
+                    addResult(`💰 Message: ${result.message}`, 'info');
+                    addResult(`📊 Status: ${result.status}`, 'info');
+                    return true;
+                } else {
+                    const error = await response.text();
+                    addResult(`❌ Payment failed: ${response.status}`, 'error');
+                    addResult(`Error: ${error}`, 'error');
+                    return false;
+                }
+            } catch (error) {
+                addResult(`❌ Payment error: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function checkDashboard() {
+            addResult('📊 Checking billing dashboard...', 'info');
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/billing/invoices', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const invoices = await response.json();
+                    addResult(`✅ Dashboard updated!`, 'success');
+                    addResult(`📋 Total Invoices: ${invoices.length}`, 'info');
+                    
+                    // Find our invoice
+                    const ourInvoice = invoices.find(inv => inv.id === testInvoiceId);
+                    if (ourInvoice) {
+                        addResult(`✅ Our invoice found in dashboard!`, 'success');
+                        addResult(`🧾 ${ourInvoice.invoice_number}: ₹${ourInvoice.total_amount.toFixed(2)} (${ourInvoice.status})`, 'info');
+                    }
+                    
+                    return true;
+                } else {
+                    addResult(`❌ Dashboard check failed: ${response.status}`, 'error');
+                    return false;
+                }
+            } catch (error) {
+                addResult(`❌ Dashboard check error: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function checkRevenue() {
+            addResult('📈 Checking revenue summary...', 'info');
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/billing/revenue/summary', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const summary = await response.json();
+                    const revenueData = summary.summary;
+                    
+                    addResult(`✅ Revenue summary updated!`, 'success');
+                    addResult(`💰 Total Revenue: ₹${revenueData.total_revenue.toFixed(2)}`, 'info');
+                    addResult(`🧾 Total Invoices: ${revenueData.total_invoices}`, 'info');
+                    addResult(`✅ Paid Invoices: ${revenueData.paid_invoices}`, 'info');
+                    addResult(`⏳ Pending Invoices: ${revenueData.pending_invoices}`, 'info');
+                    
+                    return true;
+                } else {
+                    addResult(`❌ Revenue check failed: ${response.status}`, 'error');
+                    return false;
+                }
+            } catch (error) {
+                addResult(`❌ Revenue check error: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function runCompleteTest() {
+            clearResults();
+            addResult('🚀 Starting Complete Order-to-Billing Integration Test...', 'info');
+            
+            // Step 1: Login
+            const loginSuccess = await login();
+            if (!loginSuccess) return;
+            
+            // Step 2: Get menu items
+            const menuItem = await getMenuItems();
+            if (!menuItem) return;
+            
+            // Step 3: Place order
+            const orderData = await placeOrder(menuItem);
+            if (!orderData) return;
+            
+            // Step 4: Create invoice
+            const invoice = await createInvoice(orderData);
+            if (!invoice) return;
+            
+            // Step 5: Process payment
+            const paymentSuccess = await processPayment();
+            if (!paymentSuccess) return;
+            
+            // Step 6: Check dashboard
+            await checkDashboard();
+            
+            // Step 7: Check revenue
+            await checkRevenue();
+            
+            addResult('🎉 COMPLETE TEST FINISHED SUCCESSFULLY!', 'success');
+            addResult('✅ All components of order-to-billing integration are working!', 'success');
+            addResult('🌐 Customer can now: Place Order → See Bill → Pay → Invoice Created → Dashboard Updated', 'success');
+        }
+    </script>
+</body>
+</html>

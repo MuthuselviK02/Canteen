@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>IST Time Test</title>
+</head>
+<body>
+    <h1>IST Time Conversion Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        // IST Time Utility Functions (copied from the app)
+        function formatISTTime(date) {
+            try {
+                const dateObj = typeof date === 'string' ? new Date(date) : date;
+                
+                // Check if the date is in UTC format (from backend) or local time
+                const isUTC = typeof date === 'string' && date.includes('T') && (date.includes('Z') || date.includes('+'));
+                
+                let istTime;
+                
+                if (isUTC || typeof date === 'string') {
+                    // Convert UTC to IST by adding 5:30 hours
+                    const utcTime = dateObj.getTime();
+                    const istOffset = 5.5 * 60 * 60 * 1000; // 5.5 hours in milliseconds
+                    istTime = new Date(utcTime + istOffset);
+                } else {
+                    // For local Date objects, assume they're already in the correct timezone
+                    istTime = dateObj;
+                }
+                
+                // Use reliable formatting
+                const hours = istTime.getHours();
+                const minutes = istTime.getMinutes();
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                const displayHours = hours % 12 || 12; // Convert 0 to 12
+                const displayMinutes = minutes.toString().padStart(2, '0');
+                
+                const result = `${displayHours}:${displayMinutes} ${ampm}`;
+                
+                console.log('IST Time Conversion:', {
+                    input: date,
+                    inputDateObj: dateObj,
+                    isUTC: isUTC,
+                    istTime: istTime,
+                    result: result,
+                    hours: hours,
+                    minutes: minutes,
+                    ampm: ampm
+                });
+                
+                return result;
+            } catch (error) {
+                console.error('Error formatting IST time:', error);
+                return 'Error';
+            }
+        }
+        
+        // Test with sample backend timestamps
+        const testCases = [
+            '2026-01-29T03:24:50.562210Z', // UTC time that should become 08:54 AM IST
+            '2026-01-29T08:54:50.562210Z', // UTC time that should become 02:24 PM IST
+            new Date().toISOString(), // Current UTC time
+        ];
+        
+        let results = '<h2>Test Results:</h2>';
+        
+        testCases.forEach((testCase, index) => {
+            const converted = formatISTTime(testCase);
+            const original = new Date(testCase);
+            const expectedHours = (original.getUTCHours() + 5.5) % 24;
+            const expectedAMPM = expectedHours >= 12 ? 'PM' : 'AM';
+            const expectedDisplayHours = expectedHours % 12 || 12;
+            const expectedMinutes = original.getUTCMinutes().toString().padStart(2, '0');
+            const expected = `${expectedDisplayHours}:${expectedMinutes} ${expectedAMPM}`;
+            
+            const isCorrect = converted === expected;
+            
+            results += `
+                <div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; ${isCorrect ? 'background-color: #d4edda;' : 'background-color: #f8d7da;'}">
+                    <strong>Test ${index + 1}:</strong><br>
+                    Input: ${testCase}<br>
+                    Converted: ${converted}<br>
+                    Expected: ${expected}<br>
+                    Status: ${isCorrect ? '✅ PASS' : '❌ FAIL'}
+                </div>
+            `;
+        });
+        
+        document.getElementById('results').innerHTML = results;
+    </script>
+</body>
+</html>

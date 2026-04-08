@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Orders Page Final Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Orders Page Final Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Controls</h2>
+        <button onclick="runCompleteTest()">🚀 Run Complete Test</button>
+        <button onclick="clearResults()">🗑️ Clear Results</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        let results = [];
+
+        function addResult(title, status, details = '') {
+            results.push({ title, status, details, timestamp: new Date() });
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = results.map(result => `
+                <div class="test-section ${result.status === 'success' ? 'success' : 'error'}">
+                    <h3>${result.status === 'success' ? '✅' : '❌'} ${result.title}</h3>
+                    ${result.details ? `<pre>${result.details}</pre>` : ''}
+                    <small><em>${result.timestamp.toLocaleTimeString()}</em></small>
+                </div>
+            `).join('');
+        }
+
+        function clearResults() {
+            results = [];
+            updateDisplay();
+        }
+
+        async function runCompleteTest() {
+            clearResults();
+            addResult('Starting Complete Orders Test', 'success', 'Testing full order flow...');
+
+            try {
+                // Test 1: Login
+                addResult('Testing Login', 'pending', 'Attempting to login...');
+                const loginResponse = await fetch('http://localhost:8000/api/auth/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        email: 'superadmin@admin.com',
+                        password: 'admin@1230'
+                    })
+                });
+
+                if (loginResponse.status !== 200) {
+                    throw new Error(`Login failed: ${loginResponse.status}`);
+                }
+
+                const loginData = await loginResponse.json();
+                const token = loginData.access_token;
+                localStorage.setItem('canteen_token', token);
+                addResult('Login Successful', 'success', `Token received: ${token.substring(0, 20)}...`);
+
+                // Test 2: Get User Info
+                addResult('Testing User Info', 'pending', 'Fetching current user...');
+                const userResponse = await fetch('http://localhost:8000/api/auth/me', {
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+
+                if (userResponse.status !== 200) {
+                    throw new Error(`User info failed: ${userResponse.status}`);
+                }
+
+                const userData = await userResponse.json();
+                addResult('User Info Retrieved', 'success', 
+                    `ID: ${userData.id}\nEmail: ${userData.email}\nRole: ${userData.role}`);
+
+                // Test 3: Get Orders
+                addResult('Testing Orders API', 'pending', 'Fetching orders...');
+                const ordersResponse = await fetch('http://localhost:8000/api/orders/', {
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+
+                if (ordersResponse.status !== 200) {
+                    throw new Error(`Orders fetch failed: ${ordersResponse.status}`);
+                }
+
+                const apiOrders = await ordersResponse.json();
+                addResult('Orders API Success', 'success', 
+                    `Found ${apiOrders.length} orders`);
+
+                // Test 4: Transform Data
+                addResult('Testing Data Transform', 'pending', 'Transforming API data...');
+                const transformedOrders = apiOrders.map(apiOrder => ({
+                    id: apiOrder.id.toString(),
+                    userId: apiOrder.user_id,
+                    status: apiOrder.status.toLowerCase(),
+                    items: apiOrder.items.map(item => ({
+                        menuItem: {
+                            name: item.menu_item?.name || 'Unknown',
+                            price: item.menu_item?.price || 0,
+                            image: item.menu_item?.image_url || ''
+                        },
+                        quantity: item.quantity
+                    }))
+                }));
+
+                addResult('Data Transform Success', 'success', 
+                    `Transformed ${transformedOrders.length} orders`);
+
+                // Test 5: Filter Orders
+                addResult('Testing Order Filtering', 'pending', 'Filtering for current user...');
+                const userOrders = transformedOrders.filter(o => o.userId === userData.id);
+                const activeOrders = userOrders.filter(o => o.status !== 'completed');
+
+                addResult('Order Filtering Success', 'success', 
+                    `User orders: ${userOrders.length}\nActive orders: ${activeOrders.length}`);
+
+                // Test 6: Display Sample
+                if (activeOrders.length > 0) {
+                    const sampleOrder = activeOrders[0];
+                    addResult('Sample Order Ready', 'success', 
+                        `Order ID: ${sampleOrder.id}\nStatus: ${sampleOrder.status}\nItems: ${sampleOrder.items.length}\n` +
+                        sampleOrder.items.map(item => 
+                            `- ${item.menuItem.name} x${item.quantity} ($${(item.menuItem.price * item.quantity).toFixed(2)})`
+                        ).join('\n')
+                    );
+                } else {
+                    addResult('No Active Orders', 'success', 'User has no active orders');
+                }
+
+                // Final Result
+                addResult('🎉 TEST COMPLETE', 'success', 
+                    'All tests passed! Orders page should work correctly.\n\n' +
+                    'Next steps:\n' +
+                    '1. Go to http://localhost:8080\n' +
+                    '2. Login with superadmin@admin.com / admin@1230\n' +
+                    '3. Place an order from the menu\n' +
+                    '4. Check the Orders page\n' +
+                    '5. Use the refresh button if needed');
+
+            } catch (error) {
+                addResult('❌ TEST FAILED', 'error', 
+                    `Error: ${error.message}\n\n` +
+                    'Please check:\n' +
+                    '1. Backend server is running on localhost:8000\n' +
+                    '2. Frontend server is running on localhost:8080\n' +
+                    '3. No network issues\n' +
+                    '4. Browser console for additional errors');
+            }
+        }
+    </script>
+</body>
+</html>
