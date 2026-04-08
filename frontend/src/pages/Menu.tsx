@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { API_URL, buildApiUrl, buildImageUrl } from '@/utils/api';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/utils';
 import { ProfileButton } from '@/components/ui/Profile';
 import { AIRecommendations } from '@/components/ai/AIRecommendations';
 import { AIRecommendationProvider } from '@/contexts/AIRecommendationContext';
