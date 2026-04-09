@@ -233,7 +233,7 @@ export default function BillingDashboard() {
     
     try {
       const token = localStorage.getItem('canteen_token');
-      const response = await fetch(`buildApiUrl('/api/')billing/invoices/${invoiceId}`, {
+const response = await fetch(buildApiUrl(`/api/billing/invoices/${invoiceId}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

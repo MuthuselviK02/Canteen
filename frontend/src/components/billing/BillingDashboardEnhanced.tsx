@@ -60,6 +60,7 @@ import {
 } from 'lucide-react';
 import { API_URL, buildApiUrl, buildImageUrl } from '@/utils/api';
 import { formatDateOnly, getCurrentISTDateForAPI, getBusinessDayForAPI, getISTDateRange } from '@/utils/istTime';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Invoice {
   id: string;
@@ -144,6 +145,7 @@ interface RevenueSummary {
 }
 
 const BillingDashboardEnhanced: React.FC = () => {
+  const { isAdmin } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [allPayments, setAllPayments] = useState<Payment[]>([]);
   const [settings, setSettings] = useState<BillingSettings | null>(null);
@@ -281,13 +283,14 @@ const BillingDashboardEnhanced: React.FC = () => {
       });
       
       // PRIMARY DATA SOURCE: Fetch filtered invoices (canonical dataset)
-      const invoicesRes = await fetch(`buildApiUrl('/api/')billing/invoices?start_date=${start}&end_date=${end}`, { headers });
+      const invoicesRes = await fetch(buildApiUrl(`/api/billing/invoices?start_date=${start}&end_date=${end}`), { headers });
       
       if (!invoicesRes.ok) {
         throw new Error('Failed to fetch invoices');
       }
       
-      const filteredInvoices = await invoicesRes.json();
+      const rawInvoices = await invoicesRes.json();
+      const filteredInvoices = rawInvoices.filter(inv => !inv.order_id || (Array.isArray(inv.items) && inv.items.length > 0));
       
       console.log('📋 API Response Details:', {
         dateRange,
@@ -304,10 +307,10 @@ const BillingDashboardEnhanced: React.FC = () => {
       // SECONDARY DATA: Fetch settings, payments, and analytics data (all date-filtered for consistency)
       const [settingsRes, paymentsRes, revenueRes, dailyRevenueRes, performanceRes] = await Promise.all([
         fetch(buildApiUrl('/api/billing/settings'), { headers }),
-        fetch(`buildApiUrl('/api/')billing/payments?start_date=${start}&end_date=${end}`, { headers }),
-        fetch(`buildApiUrl('/api/')billing/revenue/summary?start_date=${start}&end_date=${end}`, { headers }),
-        fetch(`buildApiUrl('/api/')billing/revenue/daily?days=${dateRange === 'today' ? 1 : dateRange === 'week' ? 7 : 30}`, { headers }),
-        fetch(`buildApiUrl('/api/')billing/performance/metrics?start_date=${start}&end_date=${end}`, { headers })
+        fetch(buildApiUrl(`/api/billing/payments?start_date=${start}&end_date=${end}`), { headers }),
+        fetch(buildApiUrl(`/api/billing/revenue/summary?start_date=${start}&end_date=${end}`), { headers }),
+        fetch(buildApiUrl(`/api/billing/revenue/daily?days=${dateRange === 'today' ? 1 : dateRange === 'week' ? 7 : 30}`), { headers }),
+        fetch(buildApiUrl(`/api/billing/performance/metrics?start_date=${start}&end_date=${end}`), { headers })
       ]);
 
       const settings = settingsRes.ok ? await settingsRes.json() : null;
@@ -568,9 +571,9 @@ const BillingDashboardEnhanced: React.FC = () => {
 
       const requestBody = { payment_method: paymentMethod };
       console.log('Request body:', requestBody);
-      console.log('Request URL:', `buildApiUrl('/api/')billing/invoices/${invoiceId}/mark-paid`);
+      console.log('Request URL:', buildApiUrl(`/api/billing/invoices/${invoiceId}/mark-paid`));
 
-      const response = await fetch(`buildApiUrl('/api/')billing/invoices/${invoiceId}/mark-paid`, {
+      const response = await fetch(buildApiUrl(`/api/billing/invoices/${invoiceId}/mark-paid`), {
         method: 'POST',
         headers,
         body: JSON.stringify(requestBody)
@@ -601,7 +604,7 @@ const BillingDashboardEnhanced: React.FC = () => {
   const sendPaymentReminder = async (invoiceId: string) => {
     try {
       const token = localStorage.getItem('canteen_token');
-      const response = await fetch(`buildApiUrl('/api/')billing/invoices/${invoiceId}/send-reminder`, {
+      const response = await fetch(buildApiUrl(`/api/billing/invoices/${invoiceId}/send-reminder`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -621,15 +624,34 @@ const BillingDashboardEnhanced: React.FC = () => {
     }
   };
 
-  const viewInvoice = (invoice: Invoice) => {
-    setSelectedInvoice(invoice);
+  const viewInvoice = async (invoice: Invoice) => {
+    try {
+      const token = localStorage.getItem('canteen_token');
+      const response = await fetch(buildApiUrl(`/api/billing/invoices/${invoice.id}`), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const invoiceDetails = await response.json();
+        setSelectedInvoice(invoiceDetails);
+      } else {
+        setSelectedInvoice(invoice);
+      }
+    } catch (error) {
+      console.error('Error fetching invoice details:', error);
+      setSelectedInvoice(invoice);
+    }
+
     setShowViewDialog(true);
   };
 
   const deleteInvoice = async (invoiceId: string) => {
     try {
       const token = localStorage.getItem('canteen_token');
-      const response = await fetch(`buildApiUrl('/api/')billing/invoices/${invoiceId}`, {
+      const response = await fetch(buildApiUrl(`/api/billing/invoices/${invoiceId}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -654,7 +676,7 @@ const BillingDashboardEnhanced: React.FC = () => {
   const fetchUserData = async (userId: string) => {
     try {
       const token = localStorage.getItem('canteen_token');
-      const response = await fetch(`buildApiUrl('/api/')users/${userId}`, {
+      const response = await fetch(buildApiUrl(`/api/users/${userId}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -1249,7 +1271,7 @@ const BillingDashboardEnhanced: React.FC = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
-                          {invoice.status === 'pending' && (
+                          {isAdmin && invoice.status === 'pending' && (
                             <Button 
                               variant="ghost" 
                               size="sm" 

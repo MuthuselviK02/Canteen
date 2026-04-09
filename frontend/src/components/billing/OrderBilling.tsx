@@ -75,6 +75,11 @@ export default function OrderBilling({
   ];
 
   const handlePayment = async (method: string) => {
+    if (!cartItems.length) {
+      toast.error('Cannot create an invoice for an empty order');
+      return;
+    }
+
     setSelectedPaymentMethod(method);
     setIsProcessing(true);
     setPaymentStep('processing');
@@ -127,26 +132,27 @@ export default function OrderBilling({
         body: JSON.stringify(invoiceData)
       });
 
-      if (response.ok) {
-        const invoice = await response.json();
-        
-        // Simulate payment processing
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        setPaymentStep('complete');
-        onPaymentComplete(method);
-        
-        toast.success(`Payment successful! Invoice: ${invoice.invoice_number}`);
-        
-        // Auto close after success
-        setTimeout(() => {
-          onClose();
-        }, 3000);
-      } else {
+      if (!response.ok) {
         const errorPayload = await response.json().catch(() => null);
         const message = (errorPayload && (errorPayload.detail || errorPayload.message)) || 'Failed to create invoice';
         throw new Error(message);
       }
+
+      const invoice = await response.json();
+
+      // Keep the user flow lightweight here: create the invoice and let admin
+      // confirm payment from the billing dashboard.
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setPaymentStep('complete');
+      onPaymentComplete(method);
+      
+      toast.success(`Invoice created successfully: ${invoice.invoice_number}`);
+      
+      // Auto close after success
+      setTimeout(() => {
+        onClose();
+      }, 3000);
     } catch (error) {
       console.error('Payment error:', error);
       toast.error(error instanceof Error ? error.message : 'Payment failed. Please try again.');
@@ -164,7 +170,7 @@ export default function OrderBilling({
             Order Billing & Payment
           </DialogTitle>
           <DialogDescription>
-            Review your order summary and choose a payment method to generate an invoice.
+            Review your order summary and choose how you plan to pay so we can generate the invoice for admin review.
           </DialogDescription>
         </DialogHeader>
 
@@ -259,27 +265,27 @@ export default function OrderBilling({
             </Card>
           )}
 
-          {/* Processing Payment */}
+          {/* Creating Invoice */}
           {paymentStep === 'processing' && (
             <Card>
               <CardContent className="py-8">
                 <div className="text-center space-y-4">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-                  <h3 className="text-lg font-medium">Processing Payment...</h3>
-                  <p className="text-gray-600">Please wait while we process your payment</p>
+                  <h3 className="text-lg font-medium">Creating Invoice...</h3>
+                  <p className="text-gray-600">Please wait while we prepare your invoice for admin confirmation</p>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Payment Complete */}
+          {/* Invoice Created */}
           {paymentStep === 'complete' && (
             <Card>
               <CardContent className="py-8">
                 <div className="text-center space-y-4">
                   <CheckCircle className="w-16 h-16 text-green-500 mx-auto" />
-                  <h3 className="text-xl font-medium text-green-700">Payment Successful!</h3>
-                  <p className="text-gray-600">Your order has been placed and payment confirmed</p>
+                  <h3 className="text-xl font-medium text-green-700">Invoice Created!</h3>
+                  <p className="text-gray-600">Your order has been placed. Admin can mark the invoice as paid from billing.</p>
                   <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
                     <ArrowRight className="w-4 h-4" />
                     <span>Redirecting to orders...</span>

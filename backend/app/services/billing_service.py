@@ -81,11 +81,16 @@ class BillingService:
             invoice_number = BillingService.generate_invoice_number(db)
             
             # Set due date (30 days from now)
-            due_date = datetime.now() + timedelta(days=30)
+            due_date = datetime.utcnow() + timedelta(days=30)
             
-            # Calculate IST business date (UTC + 5:30)
+            # Calculate IST business date from UTC to keep invoice dates consistent
             ist_offset = timedelta(hours=5, minutes=30)
-            ist_now = datetime.now() + ist_offset
+            utc_now = datetime.utcnow()
+            ist_now = utc_now + ist_offset
+            
+            # For billing, use the business date (IST date) without time
+            # This ensures invoices are grouped by business day for filtering
+            business_date = ist_now.replace(hour=0, minute=0, second=0, microsecond=0)
             
             # Create invoice
             invoice = Invoice(
@@ -97,7 +102,7 @@ class BillingService:
                 discount_amount=0.0,
                 total_amount=total_amount,
                 status="pending",
-                invoice_date=ist_now,  # Business date in IST
+                invoice_date=business_date,  # Business date in IST (date only)
                 due_date=due_date,
                 notes=notes
             )
@@ -295,11 +300,11 @@ class BillingService:
         if not end_date:
             end_date = start_date + timedelta(days=1)
         
-        # Get invoices in date range
+        # Get invoices in date range using business invoice_date
         invoices = db.query(Invoice).filter(
             and_(
-                Invoice.created_at >= start_date,
-                Invoice.created_at < end_date
+                Invoice.invoice_date >= start_date,
+                Invoice.invoice_date < end_date
             )
         ).all()
         
@@ -345,11 +350,11 @@ class BillingService:
             prev_start = start_date - duration
             prev_end = start_date
             
-            # Get previous period revenue
+            # Get previous period revenue using business invoice_date
             prev_invoices = db.query(Invoice).filter(
                 and_(
-                    Invoice.created_at >= prev_start,
-                    Invoice.created_at < prev_end,
+                    Invoice.invoice_date >= prev_start,
+                    Invoice.invoice_date < prev_end,
                     Invoice.status == "paid"
                 )
             ).all()
@@ -391,11 +396,8 @@ class BillingService:
             # Calculate IST date
             ist_date = ist_now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=i)
             
-            # Convert IST date to UTC for database query
-            utc_start_date = ist_date - ist_offset
-            utc_end_date = ist_date + timedelta(days=1) - ist_offset
-            
-            summary = BillingService.get_revenue_summary(db, utc_start_date, utc_end_date)
+                # Use IST date range directly for revenue summary
+            summary = BillingService.get_revenue_summary(db, ist_date, ist_date + timedelta(days=1))
             
             daily_revenue.append({
                 "date": ist_date.strftime("%Y-%m-%d"),

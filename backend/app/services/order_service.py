@@ -11,7 +11,7 @@ def create_order(db: Session, user_id: int, queue_position: int, predicted_time:
         user_id=user_id,
         queue_position=queue_position,
         predicted_wait_time=predicted_time,
-        status="Pending"
+        status="pending"
     )
     db.add(order)
     db.commit()

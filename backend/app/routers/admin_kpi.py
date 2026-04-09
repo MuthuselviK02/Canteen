@@ -45,6 +45,17 @@ def get_daily_kpi(
             orders = db.query(Order).filter(
                 and_(Order.created_at >= start_date, Order.created_at < end_date)
             ).all()
+
+            if orders:
+                order_ids = [order.id for order in orders]
+                valid_order_ids = {
+                    row[0]
+                    for row in db.query(OrderItem.order_id)
+                    .filter(OrderItem.order_id.in_(order_ids))
+                    .distinct()
+                    .all()
+                }
+                orders = [order for order in orders if order.id in valid_order_ids]
             
             # Total Orders
             total_orders = len(orders)

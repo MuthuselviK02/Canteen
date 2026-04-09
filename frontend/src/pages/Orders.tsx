@@ -88,6 +88,9 @@ export default function Orders() {
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  const isOrphanEmptyPendingOrder = (order: (typeof orders)[number]) =>
+    order.status === 'pending' && order.items.length === 0 && order.totalPrice === 0;
+
   // Update current time every minute for dynamic time calculations
   useEffect(() => {
     const timer = setInterval(() => {
@@ -102,7 +105,7 @@ export default function Orders() {
     fetchOrders();
   }, [fetchOrders]);
 
-  const userOrders = orders.filter(o => o.userId === user?.id);
+  const userOrders = orders.filter(o => o.userId === user?.id && !isOrphanEmptyPendingOrder(o));
   const activeOrders = userOrders.filter(o => o.status !== 'completed');
   const pastOrders = userOrders.filter(o => o.status === 'completed');
 

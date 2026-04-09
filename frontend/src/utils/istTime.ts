@@ -24,19 +24,39 @@ export const formatISTTime = (date: Date | string): string => {
     // If it's an ISO string from backend, it's UTC and needs conversion
     let istTime: Date;
 
-    if (typeof date === 'string' && date.includes('T') && date.includes('Z')) {
-      // ISO string from backend - convert from UTC to IST
-      const utcTime = dateObj.getTime();
-      const istOffset = 5.5 * 60 * 60 * 1000; // 5.5 hours in milliseconds
-      istTime = new Date(utcTime + istOffset);
+    const isoWithoutTimezone = typeof date === 'string' && date.includes('T') && !date.includes('Z') && !/[+-]\d{2}:\d{2}$/.test(date);
+    let useUTCForDisplay = false;
+
+    if (typeof date === 'string' && date.includes('T')) {
+      const hasExplicitTimezone = /[+-]\d{2}:\d{2}$/.test(date);
+      const isUTCString = date.includes('Z') || /[+-]00:00$/.test(date);
+
+      if (isUTCString) {
+        // UTC timestamps from the backend need conversion to IST.
+        const utcTime = dateObj.getTime();
+        const istOffset = 5.5 * 60 * 60 * 1000; // 5.5 hours in milliseconds
+        istTime = new Date(utcTime + istOffset);
+      } else if (hasExplicitTimezone) {
+        // Timestamps with an explicit non-UTC offset (for example +05:30) are already localized.
+        istTime = dateObj;
+      } else if (isoWithoutTimezone) {
+        // Backend returned a naive ISO string representing IST time.
+        const [datePart, timePart] = date.split('T');
+        const [year, month, day] = datePart.split('-').map(Number);
+        const [hour, minute, second] = timePart.split(/[:.]/).map(Number);
+        istTime = new Date(Date.UTC(year, month - 1, day, hour, minute, second || 0));
+        useUTCForDisplay = true;
+      } else {
+        istTime = dateObj;
+      }
     } else {
       // Local Date object - already in IST, use as-is
       istTime = dateObj;
     }
 
     // Use reliable formatting
-    const hours = istTime.getHours();
-    const minutes = istTime.getMinutes();
+    const hours = useUTCForDisplay ? istTime.getUTCHours() : istTime.getHours();
+    const minutes = useUTCForDisplay ? istTime.getUTCMinutes() : istTime.getMinutes();
     const ampm = hours >= 12 ? 'PM' : 'AM';
     const displayHours = hours % 12 || 12; // Convert 0 to 12
     const displayMinutes = minutes.toString().padStart(2, '0');
@@ -83,11 +103,30 @@ export const formatISTDate = (date: Date | string): string => {
     // If it's an ISO string from backend, it's UTC and needs conversion
     let istTime: Date;
 
-    if (typeof date === 'string' && date.includes('T') && date.includes('Z')) {
-      // ISO string from backend - convert from UTC to IST
-      const utcTime = dateObj.getTime();
-      const istOffset = 5.5 * 60 * 60 * 1000;
-      istTime = new Date(utcTime + istOffset);
+    const isoWithoutTimezone = typeof date === 'string' && date.includes('T') && !date.includes('Z') && !/[+-]\d{2}:\d{2}$/.test(date);
+    let useUTCForDisplay = false;
+
+    if (typeof date === 'string' && date.includes('T')) {
+      const hasExplicitTimezone = /[+-]\d{2}:\d{2}$/.test(date);
+      const isUTCString = date.includes('Z') || /[+-]00:00$/.test(date);
+
+      if (isUTCString) {
+        // UTC timestamps from the backend need conversion to IST.
+        const utcTime = dateObj.getTime();
+        const istOffset = 5.5 * 60 * 60 * 1000;
+        istTime = new Date(utcTime + istOffset);
+      } else if (hasExplicitTimezone) {
+        // Explicit non-UTC offsets are already localized.
+        istTime = dateObj;
+      } else if (isoWithoutTimezone) {
+        const [datePart, timePart] = date.split('T');
+        const [year, month, day] = datePart.split('-').map(Number);
+        const [hour, minute, second] = timePart.split(/[:.]/).map(Number);
+        istTime = new Date(Date.UTC(year, month - 1, day, hour, minute, second || 0));
+        useUTCForDisplay = true;
+      } else {
+        istTime = dateObj;
+      }
     } else {
       // Local Date object - already in IST, use as-is
       istTime = dateObj;
@@ -95,9 +134,9 @@ export const formatISTDate = (date: Date | string): string => {
 
     // Use reliable formatting instead of toLocaleDateString
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const day = istTime.getDate();
-    const month = months[istTime.getMonth()];
-    const year = istTime.getFullYear();
+    const day = useUTCForDisplay ? istTime.getUTCDate() : istTime.getDate();
+    const month = months[useUTCForDisplay ? istTime.getUTCMonth() : istTime.getMonth()];
+    const year = useUTCForDisplay ? istTime.getUTCFullYear() : istTime.getFullYear();
 
     const result = `${day} ${month} ${year}`;
 
@@ -171,20 +210,38 @@ export const getISTDisplay = (date: Date | string): ISTTimeDisplay => {
 
   // Check if the input is already in IST (local time) or UTC
   let istTime: Date;
+  let useUTCForDisplay = false;
+  const isoWithoutTimezone = typeof date === 'string' && date.includes('T') && !date.includes('Z') && !/[+-]\d{2}:\d{2}$/.test(date);
 
-  if (typeof date === 'string' && date.includes('T') && date.includes('Z')) {
-    // ISO string from backend - convert from UTC to IST
-    const utcTime = dateObj.getTime();
-    const istOffset = 5.5 * 60 * 60 * 1000;
-    istTime = new Date(utcTime + istOffset);
+  if (typeof date === 'string' && date.includes('T')) {
+    const hasExplicitTimezone = /[+-]\d{2}:\d{2}$/.test(date);
+    const isUTCString = date.includes('Z') || /[+-]00:00$/.test(date);
+
+    if (isUTCString) {
+      // UTC timestamps from the backend need conversion to IST.
+      const utcTime = dateObj.getTime();
+      const istOffset = 5.5 * 60 * 60 * 1000;
+      istTime = new Date(utcTime + istOffset);
+    } else if (hasExplicitTimezone) {
+      // Explicit non-UTC offsets are already localized.
+      istTime = dateObj;
+    } else if (isoWithoutTimezone) {
+      const [datePart, timePart] = date.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      const [hour, minute, second] = timePart.split(/[:.]/).map(Number);
+      istTime = new Date(Date.UTC(year, month - 1, day, hour, minute, second || 0));
+      useUTCForDisplay = true;
+    } else {
+      istTime = dateObj;
+    }
   } else {
     // Local Date object - already in IST, use as-is
     istTime = dateObj;
   }
 
   // Use reliable formatting
-  const hours = istTime.getHours();
-  const minutes = istTime.getMinutes();
+  const hours = useUTCForDisplay ? istTime.getUTCHours() : istTime.getHours();
+  const minutes = useUTCForDisplay ? istTime.getUTCMinutes() : istTime.getMinutes();
   const ampm = hours >= 12 ? 'PM' : 'AM';
   const displayHours = hours % 12 || 12;
   const displayMinutes = minutes.toString().padStart(2, '0');

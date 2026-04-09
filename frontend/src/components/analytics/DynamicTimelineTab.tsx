@@ -18,7 +18,7 @@ import {
   ArrowDown,
   Minus
 } from 'lucide-react';
-import { formatISTTime, getCurrentISTDateForAPI } from '@/utils/istTime';
+import { formatISTTime } from '@/utils/istTime';
 import { API_URL, buildApiUrl, buildImageUrl } from '@/utils/api';
 
 interface HourlyData {
@@ -27,6 +27,7 @@ interface HourlyData {
   actual_orders: number;
   predicted_orders: number;
   confidence: number;
+  day_total_orders?: number;
   is_past: boolean;
   is_current: boolean;
   is_future: boolean;
@@ -55,6 +56,22 @@ const DynamicTimelineTab: React.FC<DynamicTimelineTabProps> = ({ dateOption, onR
     return istNow.getUTCHours(); // Use getUTCHours() after offset to avoid timezone issues
   };
 
+  const getTargetISTDate = (option: string): string => {
+    const now = new Date();
+    const utcTime = now.getTime();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const target = new Date(utcTime + istOffset);
+
+    if (option === 'tomorrow') {
+      target.setUTCDate(target.getUTCDate() + 1);
+    }
+
+    const year = target.getUTCFullYear();
+    const month = String(target.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(target.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Fetch real hourly data from database
   const fetchHourlyData = async () => {
     try {
@@ -67,22 +84,7 @@ const DynamicTimelineTab: React.FC<DynamicTimelineTabProps> = ({ dateOption, onR
       }
 
       // Calculate target date based on dateOption
-      let targetDate = getCurrentISTDateForAPI();
-      const isTomorrow = dateOption === 'tomorrow';
-
-      if (isTomorrow) {
-        const now = new Date();
-        const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-        // Correctly handle IST for tomorrow
-        const utcTime = tomorrow.getTime();
-        const istOffset = 5.5 * 60 * 60 * 1000;
-        const istTomorrow = new Date(utcTime + istOffset);
-
-        const year = istTomorrow.getUTCFullYear();
-        const month = String(istTomorrow.getUTCMonth() + 1).padStart(2, '0');
-        const day = String(istTomorrow.getUTCDate()).padStart(2, '0');
-        targetDate = `${year}-${month}-${day}`;
-      }
+      const targetDate = getTargetISTDate(dateOption);
 
       console.log(`🕐 Time Debug - Local: ${new Date().toISOString()}, Option: ${dateOption}, Target Date: ${targetDate}`);
       console.log(`🕐 Fetching hourly data for date: ${targetDate}`);
@@ -91,10 +93,13 @@ const DynamicTimelineTab: React.FC<DynamicTimelineTabProps> = ({ dateOption, onR
       console.log('🔍 Starting direct database orders fetch...');
 
       // Use the new analytics orders endpoint that works correctly
-      const todayIST = getCurrentISTDateForAPI();
-      console.log('🔍 Today IST date for direct query:', todayIST);
+      console.log('🔍 Orders date for direct query:', targetDate);
+      const ordersQuery = new URLSearchParams({
+        date: targetDate,
+        status: 'completed'
+      });
 
-      const ordersResponse = await fetch(`${API_URL}/api/analytics/orders-by-date?date=${todayIST}&status=completed`, {
+      const ordersResponse = await fetch(`${API_URL}/api/analytics/orders-by-date?${ordersQuery.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -277,11 +282,14 @@ const DynamicTimelineTab: React.FC<DynamicTimelineTabProps> = ({ dateOption, onR
         actual_orders: currentActualOrders,
         predicted_orders: currentActualOrders,
         confidence: 0.95,
+        day_total_orders: totalTodayOrders,
         is_past: false,
         is_current: true,
         is_future: false,
         risk_level: 'low',
-        factors: ['Live database tracking', 'Current hour data']
+        factors: totalTodayOrders > 0
+          ? ['Live database tracking', `${totalTodayOrders} completed today`]
+          : ['Live database tracking', 'No completed orders yet']
       });
 
       // Future 4 hours
@@ -524,6 +532,9 @@ const DynamicTimelineTab: React.FC<DynamicTimelineTabProps> = ({ dateOption, onR
         {timelineData.map((hour, index) => {
           const riskStyle = getRiskStyling(hour.risk_level);
           const isCurrent = hour.is_current;
+          const statusOrderCount = hour.is_current
+            ? (hour.day_total_orders ?? hour.actual_orders)
+            : (hour.is_future ? hour.predicted_orders : hour.actual_orders);
 
           return (
             <motion.div
@@ -582,7 +593,7 @@ const DynamicTimelineTab: React.FC<DynamicTimelineTabProps> = ({ dateOption, onR
                       <div className="flex items-center justify-between pt-2 border-t border-gray-200">
                         <span className="text-xs text-gray-600">So Far Today</span>
                         <span className="font-semibold text-blue-600">
-                          {hour.actual_orders}
+                          {hour.day_total_orders ?? hour.actual_orders}
                           <span className="text-xs ml-1">orders</span>
                         </span>
                       </div>
@@ -623,18 +634,22 @@ const DynamicTimelineTab: React.FC<DynamicTimelineTabProps> = ({ dateOption, onR
                   {/* Status indicator */}
                   <div className="mt-3 flex items-center justify-between">
                     <div className="flex items-center space-x-1">
-                      {hour.actual_orders > 0 || hour.predicted_orders > 0 ? (
+                      {statusOrderCount > 0 ? (
                         <>
                           <Activity className="h-3 w-3 text-green-600" />
                           <span className="text-xs text-green-600">
-                            {hour.is_past || hour.is_current ? 'Orders served' : 'Orders expected'}
+                            {hour.is_future ? 'Orders expected' : 'Orders recorded'}
                           </span>
                         </>
                       ) : (
                         <>
                           <Minus className="h-3 w-3 text-gray-400" />
                           <span className="text-xs text-gray-400">
-                            {hour.is_past || hour.is_current ? 'No orders' : 'Quiet period'}
+                            {hour.is_current
+                              ? 'No completed orders yet'
+                              : hour.is_past
+                                ? 'No completed orders in this hour'
+                                : 'Quiet period'}
                           </span>
                         </>
                       )}

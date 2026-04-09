@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.menu import MenuItem
+from app.models.billing import Invoice
 
 
 class OrderTimeService:
@@ -167,19 +168,42 @@ class OrderTimeService:
                     order.predicted_wait_time = 0
                     print(f"Order {order_id}: Completed at {now}")
                     
-                    # Auto-create invoice when order is completed
+                    # Auto-create invoice when order is completed if one does not already exist
                     try:
-                        from app.services.billing_service import BillingService
-                        invoice = BillingService.create_invoice(
-                            db, 
-                            order.customer_id, 
-                            order_id, 
-                            notes=f"Auto-created invoice for completed order #{order_id}"
-                        )
-                        order.invoice_id = str(invoice.id)  # Store invoice ID in order
-                        print(f"Order {order_id}: Auto-created invoice {invoice.id}")
+                        existing_invoice = db.query(Invoice).filter(Invoice.order_id == order.id).first()
+                        if not order.invoice_id and not existing_invoice:
+                            from app.services.billing_service import BillingService
+
+                            # Build invoice items from the order details
+                            order_items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
+                            invoice_items = []
+                            for item in order_items:
+                                menu_item = db.query(MenuItem).filter(MenuItem.id == item.menu_item_id).first()
+                                if menu_item:
+                                    invoice_items.append({
+                                        "name": menu_item.name,
+                                        "price": float(menu_item.price or 0),
+                                        "quantity": int(item.quantity),
+                                        "description": menu_item.description or ""
+                                    })
+
+                            if invoice_items:
+                                invoice = BillingService.create_invoice(
+                                    db,
+                                    order.user_id,
+                                    order_id,
+                                    items=invoice_items,
+                                    notes=f"Auto-created invoice for completed order #{order_id}"
+                                )
+                                order.invoice_id = str(invoice.id)  # Store invoice ID in order
+                                print(f"Order {order_id}: Auto-created invoice {invoice.id}")
+                            else:
+                                print(f"Order {order_id}: Skipping invoice creation because order has no items")
+                        elif existing_invoice and not order.invoice_id:
+                            order.invoice_id = existing_invoice.id
+                            print(f"Order {order_id}: Linked existing invoice {existing_invoice.id}")
                     except Exception as invoice_error:
-                        print(f"Order {order_id}: Failed to auto-create invoice: {invoice_error}")
+                        print(f"Order {order_id}: Failed to auto-create or link invoice: {invoice_error}")
                         # Don't fail the order status update if invoice creation fails
                     
                     # REAL-TIME INVENTORY UPDATE: Update inventory levels when order is completed

@@ -109,7 +109,7 @@ export function UserManagement() {
 
         try {
             const token = localStorage.getItem('canteen_token');
-            const response = await fetch(`buildApiUrl('/api/')admin/users/${id}`, {
+            const response = await fetch(buildApiUrl(`/api/admin/users/${id}`), {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`

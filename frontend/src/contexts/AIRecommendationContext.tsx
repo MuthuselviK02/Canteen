@@ -108,7 +108,7 @@ export function AIRecommendationProvider({ children }: { children: ReactNode }) 
     
     try {
       const response = await fetch(
-        `buildApiUrl('/api/')ai/recommendations/preferences?limit=${limit}`,
+        buildApiUrl(`/api/ai/recommendations/preferences?limit=${limit}`),
         {
           headers: getAuthHeaders()
         }
@@ -198,7 +198,7 @@ export function AIRecommendationProvider({ children }: { children: ReactNode }) 
     
     try {
       const response = await fetch(
-        `buildApiUrl('/api/')ai/recommendations/time-based?limit=${limit}`,
+        buildApiUrl(`/api/ai/recommendations/time-based?limit=${limit}`),
         {
           headers: getAuthHeaders()
         }
@@ -296,10 +296,10 @@ export function AIRecommendationProvider({ children }: { children: ReactNode }) 
         params.append('dietary_restrictions', restrictions.join(','));
       }
       
-      console.log('Fetching dietary recommendations from:', `buildApiUrl('/api/')ai/recommendations/dietary?${params}`);
+      console.log('Fetching dietary recommendations from:', buildApiUrl(`/api/ai/recommendations/dietary?${params}`));
       
       const response = await fetch(
-        `buildApiUrl('/api/')ai/recommendations/dietary?${params}`,
+        buildApiUrl(`/api/ai/recommendations/dietary?${params}`),
         {
           headers: getAuthHeaders()
         }
@@ -461,7 +461,7 @@ export function AIRecommendationProvider({ children }: { children: ReactNode }) 
     
     try {
       const response = await fetch(
-        `buildApiUrl('/api/')ai/recommendations/calorie-conscious?limit=${limit}&daily_calorie_goal=${dailyGoal}`,
+        buildApiUrl(`/api/ai/recommendations/calorie-conscious?limit=${limit}&daily_calorie_goal=${dailyGoal}`),
         {
           headers: getAuthHeaders()
         }
@@ -487,7 +487,7 @@ export function AIRecommendationProvider({ children }: { children: ReactNode }) 
     
     try {
       const response = await fetch(
-        `buildApiUrl('/api/')ai/recommendations/weather-based?limit=${limit}`,
+        buildApiUrl(`/api/ai/recommendations/weather-based?limit=${limit}`),
         {
           headers: getAuthHeaders()
         }
@@ -520,7 +520,7 @@ export function AIRecommendationProvider({ children }: { children: ReactNode }) 
     
     try {
       const response = await fetch(
-        `buildApiUrl('/api/')ai/recommendations/all?preference_limit=${preferenceLimit}&time_limit=${timeLimit}&dietary_limit=${dietaryLimit}&calorie_limit=${calorieLimit}&daily_calorie_goal=${dailyGoal}`,
+        buildApiUrl(`/api/ai/recommendations/all?preference_limit=${preferenceLimit}&time_limit=${timeLimit}&dietary_limit=${dietaryLimit}&calorie_limit=${calorieLimit}&daily_calorie_goal=${dailyGoal}`),
         {
           headers: getAuthHeaders()
         }
@@ -543,7 +543,7 @@ export function AIRecommendationProvider({ children }: { children: ReactNode }) 
   const saveInteraction = async (interaction: UserInteraction) => {
     try {
       const response = await fetch(
-        'buildApiUrl('/api/')ai/interactions',
+        buildApiUrl('/api/ai/interactions'),
         {
           method: 'POST',
           headers: getAuthHeaders(),
@@ -565,7 +565,7 @@ export function AIRecommendationProvider({ children }: { children: ReactNode }) 
   const fetchUserPreferences = async () => {
     try {
       const response = await fetch(
-        'buildApiUrl('/api/')ai/preferences',
+        buildApiUrl('/api/ai/preferences'),
         {
           headers: getAuthHeaders()
         }
@@ -585,7 +585,7 @@ export function AIRecommendationProvider({ children }: { children: ReactNode }) 
   const updateUserPreference = async (type: string, value: string, weight: number = 1.0) => {
     try {
       const response = await fetch(
-        `buildApiUrl('/api/')ai/preferences?preference_type=${type}&preference_value=${value}&weight=${weight}`,
+        buildApiUrl(`/api/ai/preferences?preference_type=${type}&preference_value=${value}&weight=${weight}`),
         {
           method: 'POST',
           headers: getAuthHeaders()

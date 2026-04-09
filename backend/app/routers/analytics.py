@@ -233,7 +233,7 @@ async def get_orders_by_date(
                 "status": order.status,
                 "total_amount": float(order.total_amount),
                 "created_at": order.created_at.isoformat(),
-                "created_at_ist": ist_time.isoformat(),
+                "created_at_ist": f"{ist_time.isoformat()}+05:30",
                 "queue_position": order.queue_position,
                 "predicted_wait_time": order.predicted_wait_time
             })

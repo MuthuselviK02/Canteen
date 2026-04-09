@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { API_URL, buildApiUrl, buildImageUrl } from '@/utils/api';
 import { toast } from 'sonner';
-import { cn } from '@/utils/utils';
+import { cn } from '@/lib/utils';
 import { ProfileButton } from '@/components/ui/Profile';
 import { AIRecommendations } from '@/components/ai/AIRecommendations';
 import { AIRecommendationProvider } from '@/contexts/AIRecommendationContext';
@@ -332,6 +332,11 @@ export default function Menu() {
     if (!user) {
       toast.error('Please login to place an order');
       navigate('/login');
+      return;
+    }
+
+    if (cart.length === 0) {
+      toast.error('Add at least one item before placing an order');
       return;
     }
 

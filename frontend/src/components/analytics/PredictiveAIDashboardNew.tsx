@@ -539,7 +539,7 @@ const PredictiveAIDashboard: React.FC = () => {
 
       // Use working billing endpoint instead of broken analytics endpoint
       console.log(`🔍 Analytics Dashboard: Calling billing API with dates ${startStr} to ${endStr}`);
-      const billingResponse = await fetch(`buildApiUrl('/api/')billing/revenue/summary?start_date=${startStr}&end_date=${endStr}`, {
+      const billingResponse = await fetch(buildApiUrl(`/api/billing/revenue/summary?start_date=${startStr}&end_date=${endStr}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

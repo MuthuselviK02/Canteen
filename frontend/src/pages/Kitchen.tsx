@@ -49,7 +49,11 @@ export default function Kitchen() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showAnalytics, setShowAnalytics] = useState(false);
 
-  const activeOrders = orders.filter(o => o.status !== 'completed');
+  const isOrphanEmptyPendingOrder = (order: (typeof orders)[number]) =>
+    order.status === 'pending' && order.items.length === 0 && order.totalPrice === 0;
+
+  const visibleOrders = orders.filter(order => !isOrphanEmptyPendingOrder(order));
+  const activeOrders = visibleOrders.filter(o => o.status !== 'completed');
   
   // State for toggle between today's orders and last 30 days
   const [showTodayOnly, setShowTodayOnly] = useState(true);
@@ -59,7 +63,7 @@ export default function Kitchen() {
   console.log('📅 Today\'s date (IST):', todayDateString);
   
   // Filter completed orders based on toggle
-  const completedOrders = orders.filter(o => o.status === 'completed');
+  const completedOrders = visibleOrders.filter(o => o.status === 'completed');
   const todayCompletedOrders = completedOrders.filter(order => {
     // Get current date in IST (YYYY-MM-DD format for comparison)
     const now = new Date();

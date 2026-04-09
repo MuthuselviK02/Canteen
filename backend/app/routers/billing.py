@@ -28,6 +28,32 @@ from app.routers.analytics import get_cached_data, set_cached_data
 router = APIRouter(prefix="/api/billing", tags=["Billing"])
 
 
+def build_invoice_items_from_order(db: Session, order_id: Optional[int]) -> List[Dict[str, Any]]:
+    """Hydrate invoice line items from the linked order when invoice rows don't store them."""
+    if not order_id:
+        return []
+
+    from app.models.order_item import OrderItem
+    from app.models.menu import MenuItem
+
+    order_items = db.query(OrderItem).filter(OrderItem.order_id == order_id).all()
+    hydrated_items: List[Dict[str, Any]] = []
+
+    for item in order_items:
+        menu_item = db.query(MenuItem).filter(MenuItem.id == item.menu_item_id).first()
+        if not menu_item:
+            continue
+
+        hydrated_items.append({
+            "name": menu_item.name,
+            "price": float(menu_item.price or 0),
+            "quantity": int(item.quantity),
+            "description": menu_item.description or ""
+        })
+
+    return hydrated_items
+
+
 # Invoice Management Endpoints
 
 @router.post("/invoices", response_model=InvoiceResponse)
@@ -45,6 +71,16 @@ def create_invoice(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Customer not found"
             )
+
+        order = None
+        if invoice_data.order_id is not None:
+            from app.models.order import Order
+            order = db.query(Order).filter(Order.id == invoice_data.order_id).first()
+            if not order:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Linked order not found"
+                )
         
         # Create invoice using service
         invoice = BillingService.create_invoice(
@@ -58,6 +94,10 @@ def create_invoice(
         # Update payment method if provided
         if invoice_data.payment_method:
             invoice.payment_method = invoice_data.payment_method
+            db.commit()
+
+        if order and not order.invoice_id:
+            order.invoice_id = invoice.id
             db.commit()
         
         # Update customer information if provided
@@ -91,7 +131,7 @@ def create_invoice(
             updated_at=invoice.updated_at.isoformat(),
             is_overdue=invoice.is_overdue,
             amount_due=float(invoice.amount_due),
-            customer_name=getattr(customer, 'name', f'Customer {invoice.customer_id}'),
+            customer_name=getattr(customer, 'fullname', None) or getattr(customer, 'name', f'Customer {invoice.customer_id}'),
             customer_email=getattr(customer, 'email', None),
             customer_phone=getattr(customer, 'phone', None),
             items=invoice_data.items  # Return the items from the request
@@ -150,9 +190,10 @@ def get_invoices(
             
             invoice_response = InvoiceResponse.from_orm(invoice)
             # Override customer info
-            invoice_response.customer_name = getattr(customer, 'name', f'Customer {invoice.customer_id}')
+            invoice_response.customer_name = getattr(customer, 'fullname', None) or getattr(customer, 'name', f'Customer {invoice.customer_id}')
             invoice_response.customer_email = getattr(customer, 'email', None)
             invoice_response.customer_phone = getattr(customer, 'phone', None)
+            invoice_response.items = build_invoice_items_from_order(db, invoice.order_id)
             
             invoice_responses.append(invoice_response)
         
@@ -180,8 +221,15 @@ def get_invoice(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Invoice not found"
         )
-    
-    return InvoiceResponse.from_orm(invoice)
+
+    customer = db.query(User).filter(User.id == invoice.customer_id).first()
+    invoice_response = InvoiceResponse.from_orm(invoice)
+    invoice_response.customer_name = getattr(customer, 'fullname', None) or getattr(customer, 'name', f'Customer {invoice.customer_id}')
+    invoice_response.customer_email = getattr(customer, 'email', None)
+    invoice_response.customer_phone = getattr(customer, 'phone', None)
+    invoice_response.items = build_invoice_items_from_order(db, invoice.order_id)
+
+    return invoice_response
 
 
 @router.get("/invoices/by-number/{invoice_number}", response_model=InvoiceResponse)
@@ -199,8 +247,15 @@ def get_invoice_by_number(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Invoice not found"
         )
-    
-    return InvoiceResponse.from_orm(invoice)
+
+    customer = db.query(User).filter(User.id == invoice.customer_id).first()
+    invoice_response = InvoiceResponse.from_orm(invoice)
+    invoice_response.customer_name = getattr(customer, 'fullname', None) or getattr(customer, 'name', f'Customer {invoice.customer_id}')
+    invoice_response.customer_email = getattr(customer, 'email', None)
+    invoice_response.customer_phone = getattr(customer, 'phone', None)
+    invoice_response.items = build_invoice_items_from_order(db, invoice.order_id)
+
+    return invoice_response
 
 
 @router.put("/invoices/{invoice_id}", response_model=InvoiceResponse)
@@ -214,6 +269,12 @@ def update_invoice(
     Update invoice status
     """
     try:
+        if current_user.role not in ["ADMIN", "SUPER_ADMIN"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admin users can update invoices"
+            )
+
         invoice = BillingService.update_invoice_status(
             db, invoice_id, invoice_update.status, invoice_update.payment_method
         )
@@ -287,6 +348,12 @@ def create_payment(
     Create payment record
     """
     try:
+        if current_user.role not in ["ADMIN", "SUPER_ADMIN"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admin users can create payment records"
+            )
+
         payment = BillingService.create_payment(
             db=db,
             invoice_id=payment_data.invoice_id,
@@ -375,6 +442,12 @@ def update_payment_status(
     Update payment status
     """
     try:
+        if current_user.role not in ["ADMIN", "SUPER_ADMIN"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admin users can update payment status"
+            )
+
         payment = BillingService.update_payment_status(
             db, payment_id, status_update.status, status_update.gateway_response
         )
@@ -940,6 +1013,12 @@ def mark_invoice_paid(
     Quick action: Mark invoice as paid with specified payment method
     """
     try:
+        if current_user.role not in ["ADMIN", "SUPER_ADMIN"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admin users can mark invoices as paid"
+            )
+
         # Update invoice status
         invoice = BillingService.update_invoice_status(db, invoice_id, "paid", request.payment_method)
         
@@ -1012,8 +1091,13 @@ def create_invoice_from_order(
         
         # Create invoice
         invoice = BillingService.create_invoice(
-            db, order.customer_id, order_id, notes=notes
+            db, order.user_id, order_id, notes=notes
         )
+        
+        if not order.invoice_id:
+            order.invoice_id = invoice.id
+            db.commit()
+            db.refresh(order)
         
         return InvoiceResponse.from_orm(invoice)
     

@@ -59,7 +59,7 @@ interface OrderContextType {
   removeFromCart: (itemId: string) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
   clearCart: () => void;
-  placeOrder: (userId: number, userName: string) => void;
+  placeOrder: (userId: number, userName: string) => Promise<Order>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   deleteOrder: (orderId: string) => Promise<void>;
   getCartTotal: () => { price: number; calories: number; time: number };
@@ -122,6 +122,10 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   };
 
   const placeOrder = async (userId: number, userName: string) => {
+    if (cart.length === 0) {
+      throw new Error('Your cart is empty');
+    }
+
     const totals = getCartTotal();
     const pendingOrders = orders.filter(o => o.status !== 'completed').length;
 
@@ -180,7 +184,11 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Error placing order:', error);
-      
+
+      if (cart.length === 0) {
+        throw error instanceof Error ? error : new Error('Your cart is empty');
+      }
+
       // Fallback to local order creation if backend fails
       const newOrder: Order = {
         id: Date.now().toString(),
