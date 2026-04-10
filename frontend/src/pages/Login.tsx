@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { Button } from '@/components/ui/button';
@@ -8,13 +8,32 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Loader2, Mail, Lock } from 'lucide-react';
 
+const validateEmail = (value: string): string => {
+  const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+  if (!emailRegex.test(value)) {
+    return 'Please enter a valid email address';
+  }
+  return '';
+};
+
+const validatePassword = (value: string): string => {
+  if (value.length < 6) {
+    return 'Password must be at least 6 characters';
+  }
+  if (value.length > 16) {
+    return 'Password cannot exceed 16 characters';
+  }
+  return '';
+};
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState({ email: '', password: '' });
+  const [touched, setTouched] = useState({ email: false, password: false });
   const [isLoading, setIsLoading] = useState(false);
   const { login, user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   useEffect(() => {
     // Clear form on mount to prevent browser autofill
@@ -31,8 +50,13 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!email || !password) {
-      toast.error('Please fill in all fields');
+    const emailError = validateEmail(email);
+    const passwordError = validatePassword(password);
+
+    setErrors({ email: emailError, password: passwordError });
+    setTouched({ email: true, password: true });
+
+    if (emailError || passwordError) {
       return;
     }
 
@@ -47,6 +71,8 @@ export default function Login() {
       setIsLoading(false);
     }
   };
+
+  const isFormValid = !validateEmail(email) && !validatePassword(password);
 
   return (
     <AuthLayout
@@ -63,12 +89,25 @@ export default function Login() {
               type="email"
               placeholder="Enter your email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="pl-10 h-12"
+              onChange={(e) => {
+                const value = e.target.value;
+                setEmail(value);
+                setErrors((prev) => ({ ...prev, email: validateEmail(value) }));
+              }}
+              onBlur={() => {
+                setTouched((prev) => ({ ...prev, email: true }));
+                setErrors((prev) => ({ ...prev, email: validateEmail(email) }));
+              }}
+              className={`pl-10 h-12 ${
+                touched.email && errors.email ? 'border-red-500 focus-visible:ring-red-500' : ''
+              }`}
               disabled={isLoading}
               autoComplete="off"
             />
           </div>
+          {touched.email && errors.email && (
+            <p className="text-sm text-red-500">{errors.email}</p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -80,18 +119,31 @@ export default function Login() {
               type="password"
               placeholder="Enter your password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="pl-10 h-12"
+              onChange={(e) => {
+                const value = e.target.value;
+                setPassword(value);
+                setErrors((prev) => ({ ...prev, password: validatePassword(value) }));
+              }}
+              onBlur={() => {
+                setTouched((prev) => ({ ...prev, password: true }));
+                setErrors((prev) => ({ ...prev, password: validatePassword(password) }));
+              }}
+              className={`pl-10 h-12 ${
+                touched.password && errors.password ? 'border-red-500 focus-visible:ring-red-500' : ''
+              }`}
               disabled={isLoading}
               autoComplete="new-password"
             />
           </div>
+          {touched.password && errors.password && (
+            <p className="text-sm text-red-500">{errors.password}</p>
+          )}
         </div>
 
         <Button
           type="submit"
           className="w-full h-12 gradient-primary text-primary-foreground font-semibold shadow-soft hover:shadow-card transition-all duration-300"
-          disabled={isLoading}
+          disabled={isLoading || !isFormValid}
         >
           {isLoading ? (
             <>

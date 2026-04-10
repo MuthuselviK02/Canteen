@@ -8,10 +8,38 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Loader2, User, Mail, Lock } from 'lucide-react';
 
+const validateUsername = (value: string): string => {
+  const usernameRegex = /^[A-Za-z]+$/;
+  if (!usernameRegex.test(value)) {
+    return 'Username must contain only letters';
+  }
+  return '';
+};
+
+const validateEmail = (value: string): string => {
+  const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+  if (!emailRegex.test(value)) {
+    return 'Please enter a valid email address';
+  }
+  return '';
+};
+
+const validatePassword = (value: string): string => {
+  if (value.length < 6) {
+    return 'Password must be at least 6 characters';
+  }
+  if (value.length > 16) {
+    return 'Password cannot exceed 16 characters';
+  }
+  return '';
+};
+
 export default function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState({ name: '', email: '', password: '' });
+  const [touched, setTouched] = useState({ name: false, email: false, password: false });
   const [isLoading, setIsLoading] = useState(false);
   const { register, login, user } = useAuth();
   const navigate = useNavigate();
@@ -32,13 +60,14 @@ export default function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name || !email || !password) {
-      toast.error('Please fill in all fields');
-      return;
-    }
+    const nameError = validateUsername(name);
+    const emailError = validateEmail(email);
+    const passwordError = validatePassword(password);
 
-    if (password.length < 6) {
-      toast.error('Password must be at least 6 characters');
+    setErrors({ name: nameError, email: emailError, password: passwordError });
+    setTouched({ name: true, email: true, password: true });
+
+    if (nameError || emailError || passwordError) {
       return;
     }
 
@@ -64,6 +93,9 @@ export default function Register() {
     }
   };
 
+  const isFormValid =
+    !validateUsername(name) && !validateEmail(email) && !validatePassword(password);
+
   return (
     <AuthLayout
       title="Create Account"
@@ -79,11 +111,24 @@ export default function Register() {
               type="text"
               placeholder="Enter your full name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="pl-10 h-12"
+              onChange={(e) => {
+                const value = e.target.value;
+                setName(value);
+                setErrors((prev) => ({ ...prev, name: validateUsername(value) }));
+              }}
+              onBlur={() => {
+                setTouched((prev) => ({ ...prev, name: true }));
+                setErrors((prev) => ({ ...prev, name: validateUsername(name) }));
+              }}
+              className={`pl-10 h-12 ${
+                touched.name && errors.name ? 'border-red-500 focus-visible:ring-red-500' : ''
+              }`}
               disabled={isLoading}
             />
           </div>
+          {touched.name && errors.name && (
+            <p className="text-sm text-red-500">{errors.name}</p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -95,12 +140,25 @@ export default function Register() {
               type="email"
               placeholder="Enter your email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="pl-10 h-12"
+              onChange={(e) => {
+                const value = e.target.value;
+                setEmail(value);
+                setErrors((prev) => ({ ...prev, email: validateEmail(value) }));
+              }}
+              onBlur={() => {
+                setTouched((prev) => ({ ...prev, email: true }));
+                setErrors((prev) => ({ ...prev, email: validateEmail(email) }));
+              }}
+              className={`pl-10 h-12 ${
+                touched.email && errors.email ? 'border-red-500 focus-visible:ring-red-500' : ''
+              }`}
               disabled={isLoading}
               autoComplete="off"
             />
           </div>
+          {touched.email && errors.email && (
+            <p className="text-sm text-red-500">{errors.email}</p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -112,18 +170,31 @@ export default function Register() {
               type="password"
               placeholder="Create a password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="pl-10 h-12"
+              onChange={(e) => {
+                const value = e.target.value;
+                setPassword(value);
+                setErrors((prev) => ({ ...prev, password: validatePassword(value) }));
+              }}
+              onBlur={() => {
+                setTouched((prev) => ({ ...prev, password: true }));
+                setErrors((prev) => ({ ...prev, password: validatePassword(password) }));
+              }}
+              className={`pl-10 h-12 ${
+                touched.password && errors.password ? 'border-red-500 focus-visible:ring-red-500' : ''
+              }`}
               disabled={isLoading}
               autoComplete="new-password"
             />
           </div>
+          {touched.password && errors.password && (
+            <p className="text-sm text-red-500">{errors.password}</p>
+          )}
         </div>
 
         <Button
           type="submit"
           className="w-full h-12 gradient-primary text-primary-foreground font-semibold shadow-soft hover:shadow-card transition-all duration-300"
-          disabled={isLoading}
+          disabled={isLoading || !isFormValid}
         >
           {isLoading ? (
             <>
