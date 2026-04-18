@@ -38,6 +38,7 @@ export default function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isHumanVerified, setIsHumanVerified] = useState(false);
   const [errors, setErrors] = useState({ name: '', email: '', password: '' });
   const [touched, setTouched] = useState({ name: false, email: false, password: false });
   const [isLoading, setIsLoading] = useState(false);
@@ -68,6 +69,11 @@ export default function Register() {
     setTouched({ name: true, email: true, password: true });
 
     if (nameError || emailError || passwordError) {
+      return;
+    }
+
+    if (!isHumanVerified) {
+      toast.error('Please confirm you are not a robot');
       return;
     }
 
@@ -191,10 +197,26 @@ export default function Register() {
           )}
         </div>
 
+        <div className="rounded-lg border bg-card p-4">
+          <div className="flex items-center space-x-3">
+            <input
+              id="register-robot-check"
+              type="checkbox"
+              checked={isHumanVerified}
+              onChange={(e) => setIsHumanVerified(e.target.checked)}
+              disabled={isLoading}
+              className="h-4 w-4 cursor-pointer accent-primary"
+            />
+            <Label htmlFor="register-robot-check" className="cursor-pointer text-sm font-medium">
+              I'm not a robot
+            </Label>
+          </div>
+        </div>
+
         <Button
           type="submit"
           className="w-full h-12 gradient-primary text-primary-foreground font-semibold shadow-soft hover:shadow-card transition-all duration-300"
-          disabled={isLoading || !isFormValid}
+          disabled={isLoading || !isFormValid || !isHumanVerified}
         >
           {isLoading ? (
             <>
